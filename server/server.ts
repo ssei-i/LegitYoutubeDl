@@ -1,5 +1,5 @@
 import express from "express";
-import { YtDlp, type FormatOptions, type FormatTable, type TypeOptions } from 'ytdlp-nodejs';
+import { YtDlp} from 'ytdlp-nodejs';
 import fs from "fs";
 import path from "path";
 import os from "os";
