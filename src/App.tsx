@@ -20,41 +20,58 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+const API = import.meta.env.VITE_API_URL;
+const TOKEN = import.meta.env.VITE_API_TOKEN;
 
 export default function App() {
   const [url, setUrl] = useState<string>("");
+  const [format, setFormat] = useState<string | null>("mp4");
   const [progress, setProgress] = useState(0);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
-                  
-    const handleDownload = () => {
-      setBusy(true);
-      setProgress(0);
+  const [error, setError] = useState<string | null>(null);
 
-      const res = new EventSource(`/api/download?url=${encodeURIComponent(url)}&format=${format}`)
-        res.onmessage = (e) => {
-          const msg = JSON.parse(e.data);
-          if (msg.type === "progress") setProgress(msg.percent);
+  const handleDownload = () => {
+    if (!url.trim()) return;
+    setBusy(true);
+    setProgress(0);
+    setError(null);
 
-          if (msg.type === 'done') {
-            res.close();
-            setBusy(false);
-            setDone(true);
-            const a = document.createElement("a");
-            a.href = `/api/file?name=${encodeURIComponent(msg.file)}`;
-            a.download = ""
-            document.body.appendChild(a)
-            a.click()
-            a.remove()
-          }
-        }
-        res.onerror = (err) => {
-        console.error("EventSource error:", err);
-        res.close();
+    const es = new EventSource(
+      `${API}/api/download?url=${encodeURIComponent(url)}&format=${format}&token=${TOKEN}`
+    );
+
+    es.onmessage = (e) => {
+      const msg = JSON.parse(e.data);
+
+      if (msg.type === "progress") setProgress(msg.percent);
+
+      if (msg.type === "done") {
+        es.close();
         setBusy(false);
+        setDone(true);
+        const a = document.createElement("a");
+        a.href = `${API}/api/file?name=${encodeURIComponent(msg.file)}&token=${TOKEN}`;
+        a.download = "";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
       }
-    }
-  const [format, setFormat] = useState<string | null>("mp4");
+
+      if (msg.type === "error") {
+        es.close();
+        setBusy(false);
+        setError(msg.message ?? "Something went wrong");
+      }
+    };
+
+    es.onerror = () => {
+      es.close();
+      setBusy(false);
+      setError("Could not reach the server (is it running?)");
+    };
+  };
+
   return (
     <div>
       {done && <Alert className="text-white max-w-md mx-auto mt-4">
@@ -68,6 +85,14 @@ export default function App() {
           </Button>
         </AlertAction>
       </Alert>}
+        {error && (
+          <Alert className="text-white max-w-md mx-auto mt-4">
+              <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+          <AlertAction>
+            <Button variant="outline" onClick={() => setError(null)}>Dismiss</Button>
+          </AlertAction>
+      </Alert>)}
       <div className="flex h-screen items-center justify-center">
         <div>
           <Field>
